@@ -19,5 +19,12 @@ data:extend({
         order = "c",
         type = "bool-setting",
         default_value = false
+    },
+    {
+        name = "combinator-toggle-ignore-reach",
+        setting_type = "runtime-per-user",
+        order = "d",
+        type = "bool-setting",
+        default_value = false
     }
 })
