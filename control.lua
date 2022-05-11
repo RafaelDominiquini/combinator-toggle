@@ -7,7 +7,8 @@ NAMES = {
     settings = {
         combinator = MOD_PREFIX .. "combinator-setting",
         power_switch = MOD_PREFIX .. "power-switch-setting",
-        locomotive = MOD_PREFIX .. "locomotive-setting"
+        locomotive = MOD_PREFIX .. "locomotive-setting",
+        remote_reach = MOD_PREFIX .. "ignore-reach"
     }
 }
 
@@ -15,8 +16,11 @@ function update_player_settings(player_index)
     global.mod_settings[player_index] = {
         combinator = settings.get_player_settings(player_index)[NAMES.settings.combinator].value,
         power_switch = settings.get_player_settings(player_index)[NAMES.settings.power_switch].value,
-        locomotive = settings.get_player_settings(player_index)[NAMES.settings.locomotive].value
+        locomotive = settings.get_player_settings(player_index)[NAMES.settings.locomotive].value,
+        remote_reach = settings.get_player_settings(player_index)[NAMES.settings.remote_reach].value
     }
+
+    return global.mod_settings[player_index]
 end
 
 function update_single_setting(event)
@@ -52,37 +56,41 @@ function on_keypress(event)
     local player = game.players[player_index]
     local entity = player.selected
 
+    if not entity or not entity.valid then return end
+
     local sound_paths = {
         combinator = {on="utility/upgrade_selection_ended", off="utility/upgrade_selection_started"},
         power_switch = {on="utility/upgrade_selection_ended", off="utility/wire_pickup"},
+        locomotive = {on="utility/upgrade_selection_ended", off="utility/upgrade_selection_started"},
         failed = "utility/cannot_build"
     }
 
     local texts = {
         combinator = {on={"combinator-toggle.on"}, off={"combinator-toggle.off"}},
+        power_switch = {on={"combinator-toggle.on"}, off={"combinator-toggle.off"}},
         locomotive = {on={"combinator-toggle.manual"}, off={"combinator-toggle.automatic"}}
     }
 
-    if not global.mod_settings[player_index] then update_player_settings(player_index) end
-    if not entity or not entity.valid then return end
-
-    if player.can_reach_entity(entity) and player.force.name == entity.force.name then
-        local player_settings = global.mod_settings[player_index]
+    local player_settings = global.mod_settings[player_index] or update_player_settings(player_index)
+    if player.force.name == entity.force.name and (player_settings.remote_reach or player.can_reach_entity(entity)) then
         -- toggle if selected entity is of "constant-combinator" type
         if entity.type == "constant-combinator" and player_settings.combinator then
+            -- log("'Contant Combinator' Toggled! " .. (player.can_reach_entity(entity) and "(Within Range)" or "(At A Distance)"))
             local control = entity.get_or_create_control_behavior()
             control.enabled = not control.enabled
             play_sound_effect(entity, control.enabled, sound_paths.combinator)
             create_flying_text(player, entity, control.enabled, texts.combinator)
         -- toggle if selected entity is a power switch
         elseif entity.type == "power-switch" and player_settings.power_switch then
+            -- log("'Power Switch' Toggled! " .. (player.can_reach_entity(entity) and "(Within Range)" or "(At A Distance)"))
             entity.power_switch_state = not entity.power_switch_state
             play_sound_effect(entity, entity.power_switch_state, sound_paths.power_switch)
-            create_flying_text(player, entity, entity.power_switch_state, texts.combinator)
+            create_flying_text(player, entity, entity.power_switch_state, texts.power_switch)
         -- toggle if selected entity is a train
         elseif entity.type == "locomotive" and player_settings.locomotive then
+            -- log("'Locomotive' Toggled! " .. (player.can_reach_entity(entity) and "(Within Range)" or "(At A Distance)"))
             entity.train.manual_mode = not entity.train.manual_mode
-            play_sound_effect(entity, entity.train.manual_mode, sound_paths.combinator)
+            play_sound_effect(entity, entity.train.manual_mode, sound_paths.locomotive)
             create_flying_text(player, entity, entity.train.manual_mode, texts.locomotive)
         end
     else
